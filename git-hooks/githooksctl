@@ -1,0 +1,128 @@
+#!/bin/bash -eu
+
+function display_help()
+{
+    echo "usage: githooksctl [-h | --help] [--list-hooks]"
+    echo "                   [--enable <hook>] [--disable <hook>]"
+    echo
+    echo "Show and enable/disable git hooks."
+    echo
+    echo "Arguments:"
+    echo "    --list-hooks      Display available git hooks"
+    echo "    --disable <hook>  Disable git hooks"
+    echo "    --enable <hook>   Enable git hooks"
+}
+
+HOOKS_ALL=( \
+        applypatch-msg \
+        commit-msg \
+        fsmonitor-watchman \
+        post-update.sample \
+        pre-applypatch \
+        pre-commit \
+        pre-merge-commit \
+        prepare-commit-msg \
+        pre-push \
+        pre-rebase \
+        pre-receive \
+        push-to-checkout \
+        update \
+    )
+
+HOOKS_ENABLED=()
+HOOKS_DISABLED=()
+
+HOOKS_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+PROJECT_ROOT=$(dirname -- "$HOOKS_DIR")
+
+eval set -- "$(getopt -o 'h' --long 'help,list-hooks,disable:,enable:' -n 'githooksctl' -- "$@")"
+while true; do
+    case "$1" in
+        '-h'|'--help')
+            display_help && exit 0
+            ;;
+        '--list-hooks')
+            echo "Available git hooks:"
+            for hook in "$HOOKS_DIR"/hooks/*; do
+                echo "    $(basename "$hook")"
+            done
+            exit 0
+            ;;
+
+        '--disable')
+            HOOKS_DISABLED+=("$2")
+            shift && shift
+            ;;
+
+        '--enable')
+            HOOKS_ENABLED+=("$2")
+            shift && shift
+            ;;
+
+        '--')
+            shift
+            break
+            ;;
+
+        *)
+            echo "unknown option: $1"
+            display_help && exit 1
+            ;;
+    esac
+done
+
+function enable_disable_hooks()
+{
+    local what="$1"
+    for hook in "${HOOKS_ALL[@]}"; do
+        if [[ "$what" == "enable" && "${HOOKS_ENABLED[*]}" =~ $hook && -f "$HOOKS_DIR"/hooks/"$hook" && ! -f "$HOOKS_DIR"/../.git/hooks/"$hook" ]]; then
+            ln -s "$HOOKS_DIR"/hooks/"$hook" "$HOOKS_DIR"/../.git/hooks/"$hook"
+            chmod +x "$HOOKS_DIR"/../.git/hooks/"$hook"
+        elif [[ "$what" == "disable" && "${HOOKS_DISABLED[*]}" =~ $hook && -f "$HOOKS_DIR"/../.git/hooks/"$hook" ]]; then
+            rm "$HOOKS_DIR"/../.git/hooks/"$hook"
+        fi
+    done
+}
+
+if [ -z "$(ls -A "${PROJECT_ROOT}/openbmc-build-scripts/")" ]; then
+    git submodule update --init --recursive
+    (cd "${PROJECT_ROOT}/openbmc-build-scripts/" && \
+    git checkout 8c012379a8c0e1f52196617e68de95a1bbc040b6 && \
+    git apply <<EOF
+diff --git a/scripts/format-code.sh b/scripts/format-code.sh
+index 43a3278..90b0e3a 100755
+--- a/scripts/format-code.sh
++++ b/scripts/format-code.sh
+@@ -34,6 +34,7 @@ LINTERS_ALL=( \
+         eslint \
+         flake8 \
+         isort \
++        jsonlint \
+         markdownlint \
+         prettier \
+         shellcheck \
+@@ -241,6 +242,12 @@ function do_flake8() {
+     # disagree on best practices.
+ }
+ 
++LINTER_REQUIRE+=([jsonlint]="jsonlint")
++LINTER_TYPES+=([jsonlint]="json")
++function do_jsonlint() {
++    jsonlint "$@"
++}
++
+ LINTER_REQUIRE+=([isort]="isort")
+ LINTER_TYPES+=([isort]="python")
+ function do_isort() {
+EOF
+)
+fi
+
+if [ -n "${HOOKS_ENABLED:-}" ]; then
+    enable_disable_hooks "enable"
+fi
+
+if [ -n "${HOOKS_DISABLED:-}" ]; then
+    enable_disable_hooks "disable"
+fi
+

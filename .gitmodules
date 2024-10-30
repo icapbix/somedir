@@ -1,0 +1,3 @@
+[submodule "openbmc-build-scripts"]
+	path = openbmc-build-scripts
+	url = https://github.com/openbmc/openbmc-build-scripts

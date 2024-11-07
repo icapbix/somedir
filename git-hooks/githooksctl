@@ -32,7 +32,7 @@ HOOKS_ALL=( \
 HOOKS_ENABLED=()
 HOOKS_DISABLED=()
 
-HOOKS_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+HOOKS_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT=$(dirname -- "$HOOKS_DIR")
 
 eval set -- "$(getopt -o 'h' --long 'help,list-hooks,disable:,enable:' -n 'githooksctl' -- "$@")"
@@ -71,26 +71,19 @@ while true; do
     esac
 done
 
-function enable_disable_hooks()
+function configure_precommit()
 {
-    local what="$1"
-    for hook in "${HOOKS_ALL[@]}"; do
-        if [[ "$what" == "enable" && "${HOOKS_ENABLED[*]}" =~ $hook && -f "$HOOKS_DIR"/hooks/"$hook" && ! -f "$HOOKS_DIR"/../.git/hooks/"$hook" ]]; then
-            ln -s "$HOOKS_DIR"/hooks/"$hook" "$HOOKS_DIR"/../.git/hooks/"$hook"
-            chmod +x "$HOOKS_DIR"/../.git/hooks/"$hook"
-        elif [[ "$what" == "disable" && "${HOOKS_DISABLED[*]}" =~ $hook && -f "$HOOKS_DIR"/../.git/hooks/"$hook" ]]; then
-            rm "$HOOKS_DIR"/../.git/hooks/"$hook"
-        fi
-    done
-}
-
-if [ -z "$(ls -A "${PROJECT_ROOT}/openbmc-build-scripts/")" ]; then
-    git submodule update --init --recursive
-    (cd "${PROJECT_ROOT}/openbmc-build-scripts/" && \
-    git checkout 8c012379a8c0e1f52196617e68de95a1bbc040b6 && \
-    git apply <<EOF
+    if [ -z "$(ls -A "${PROJECT_ROOT}/openbmc-build-scripts/")" ]; then
+        git submodule update --init --recursive
+        #bash -eu
+        cd "${PROJECT_ROOT}/openbmc-build-scripts/"
+        git checkout 8c012379a8c0e1f52196617e68de95a1bbc040b6 2>/dev/null
+        git apply <<\EOF
+diff --git a/.shellcheck b/.shellcheck
+deleted file mode 100644
+index e69de29..0000000
 diff --git a/scripts/format-code.sh b/scripts/format-code.sh
-index 43a3278..90b0e3a 100755
+index 43a3278..39e0588 100755
 --- a/scripts/format-code.sh
 +++ b/scripts/format-code.sh
 @@ -34,6 +34,7 @@ LINTERS_ALL=( \
@@ -101,22 +94,52 @@ index 43a3278..90b0e3a 100755
          markdownlint \
          prettier \
          shellcheck \
-@@ -241,6 +242,12 @@ function do_flake8() {
-     # disagree on best practices.
+@@ -247,6 +248,12 @@ function do_isort() {
+     isort --profile black "$@"
  }
- 
+
 +LINTER_REQUIRE+=([jsonlint]="jsonlint")
 +LINTER_TYPES+=([jsonlint]="json")
 +function do_jsonlint() {
 +    jsonlint "$@"
 +}
 +
- LINTER_REQUIRE+=([isort]="isort")
- LINTER_TYPES+=([isort]="python")
- function do_isort() {
+ LINTER_REQUIRE+=([markdownlint]="markdownlint;.markdownlint.yaml;${CONFIG_PATH}/markdownlint.yaml")
+ LINTER_IGNORE+=([markdownlint]=".markdownlint-ignore")
+ LINTER_TYPES+=([markdownlint]="markdown")
+@@ -268,7 +275,7 @@ LINTER_REQUIRE+=([shellcheck]="shellcheck")
+ LINTER_IGNORE+=([shellcheck]=".shellcheck-ignore")
+ LINTER_TYPES+=([shellcheck]="bash;sh")
+ function do_shellcheck() {
+-    shellcheck --color=never -x "$@"
++    shellcheck --color=never -x "$@" -e SC2317
+ }
+
+ LINTER_REQUIRE+=([clang_format]="clang-format;.clang-format")
 EOF
-)
-fi
+    cat >config/.beautysh-ignore <<\EOF
+git-hooks/githooksctl
+EOF
+    exit 0
+    cat >.prettierignore <<\EOF
+tools/redfish-gen/redfish/v1/Chassis/ChassisNode/Power.yaml
+EOF
+    fi
+}
+
+function enable_disable_hooks()
+{
+    local what="$1"
+    for hook in "${HOOKS_ALL[@]}"; do
+        if [[ "$what" == "enable" && "${HOOKS_ENABLED[*]}" =~ $hook && -f "$HOOKS_DIR"/hooks/"$hook" && ! -f "$HOOKS_DIR"/../.git/hooks/"$hook" ]]; then
+            ln -s "$HOOKS_DIR"/hooks/"$hook" "$HOOKS_DIR"/../.git/hooks/"$hook"
+            chmod +x "$HOOKS_DIR"/../.git/hooks/"$hook"
+            configure_precommit
+        elif [[ "$what" == "disable" && "${HOOKS_DISABLED[*]}" =~ $hook && -f "$HOOKS_DIR"/../.git/hooks/"$hook" ]]; then
+            rm "$HOOKS_DIR"/../.git/hooks/"$hook"
+        fi
+    done
+}
 
 if [ -n "${HOOKS_ENABLED:-}" ]; then
     enable_disable_hooks "enable"

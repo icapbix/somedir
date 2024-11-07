@@ -73,11 +73,12 @@ done
 
 function configure_precommit()
 {
-    if [ -z "$(ls -A "${PROJECT_ROOT}/openbmc-build-scripts/")" ]; then
+    # if [ -z "$(ls -A "${PROJECT_ROOT}/openbmc-build-scripts/")" ]; then
+    if [ 1 ]; then
         git submodule update --init --recursive
-        #bash -eu
-        cd "${PROJECT_ROOT}/openbmc-build-scripts/"
-        git checkout 8c012379a8c0e1f52196617e68de95a1bbc040b6 2>/dev/null
+        (cd "${PROJECT_ROOT}/openbmc-build-scripts/"
+        echo "ASdsadasd"
+        git checkout 8c012379a8c0e1f52196617e68de95a1bbc040b6
         git apply <<\EOF
 diff --git a/.shellcheck b/.shellcheck
 deleted file mode 100644
@@ -120,7 +121,7 @@ EOF
     cat >config/.beautysh-ignore <<\EOF
 git-hooks/githooksctl
 EOF
-    exit 0
+)
     cat >.prettierignore <<\EOF
 tools/redfish-gen/redfish/v1/Chassis/ChassisNode/Power.yaml
 EOF

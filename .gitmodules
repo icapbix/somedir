@@ -1,9 +1,6 @@
 [submodule "tools/redfish_tools"]
 	path = tools/redfish_tools
 	url = https://github.com/DMTF/Redfish-Tools
-[submodule "openbmc-build-scripts"]
-	path = openbmc-build-scripts
-	url = https://github.com/openbmc/openbmc-build-scripts
 [submodule "bmcweb"]
 	path = bmcweb
 	url = https://github.com/openbmc/bmcweb

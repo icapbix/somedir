@@ -4,6 +4,3 @@
 [submodule "openbmc-build-scripts"]
 	path = openbmc-build-scripts
 	url = https://github.com/openbmc/openbmc-build-scripts
-[submodule "bmcweb"]
-	path = bmcweb
-	url = https://github.com/openbmc/bmcweb
